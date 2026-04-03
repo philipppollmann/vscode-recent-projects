@@ -1,0 +1,1 @@
+# vscode-recent-projects
