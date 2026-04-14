@@ -1,0 +1,189 @@
+{
+  "name": "recent-projects-switcher",
+  "displayName": "Recent Projects",
+  "description": "JetBrains-style project switcher with sidebar panel and welcome page",
+  "version": "0.1.0",
+  "publisher": "philipppollmann",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "projects",
+    "recent",
+    "switcher",
+    "workspace",
+    "jetbrains"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "recentProjects",
+          "title": "Recent Projects",
+          "icon": "$(folder-library)"
+        }
+      ]
+    },
+    "views": {
+      "recentProjects": [
+        {
+          "id": "recentProjectsView",
+          "name": "Projects",
+          "icon": "$(folder-library)"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "recentProjects.switchProject",
+        "title": "Switch Project",
+        "category": "Recent Projects",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "recentProjects.openWelcomePage",
+        "title": "Open Start Page",
+        "category": "Recent Projects",
+        "icon": "$(home)"
+      },
+      {
+        "command": "recentProjects.addProject",
+        "title": "Add Project to List",
+        "category": "Recent Projects",
+        "icon": "$(add)"
+      },
+      {
+        "command": "recentProjects.removeProject",
+        "title": "Remove Project from List",
+        "category": "Recent Projects",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "recentProjects.clearProjects",
+        "title": "Clear All Projects",
+        "category": "Recent Projects"
+      },
+      {
+        "command": "recentProjects.refreshProjects",
+        "title": "Refresh Projects",
+        "category": "Recent Projects",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "recentProjects.openProjectFromTree",
+        "title": "Open Project in New Window",
+        "category": "Recent Projects",
+        "icon": "$(multiple-windows)"
+      },
+      {
+        "command": "recentProjects.editProjectColor",
+        "title": "Change Tile Color",
+        "category": "Recent Projects",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "recentProjects.editProjectIcon",
+        "title": "Change Project Icon",
+        "category": "Recent Projects",
+        "icon": "$(smiley)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "recentProjects.addProject",
+          "when": "view == recentProjectsView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "recentProjects.openWelcomePage",
+          "when": "view == recentProjectsView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "recentProjects.refreshProjects",
+          "when": "view == recentProjectsView",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "recentProjects.editProjectColor",
+          "when": "view == recentProjectsView && viewItem == project",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "recentProjects.editProjectIcon",
+          "when": "view == recentProjectsView && viewItem == project",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "recentProjects.removeProject",
+          "when": "view == recentProjectsView && viewItem == project",
+          "group": "2_remove@1"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "recentProjects.switchProject",
+        "key": "ctrl+alt+p",
+        "mac": "cmd+alt+p"
+      }
+    ],
+    "configuration": {
+      "title": "Recent Projects",
+      "properties": {
+        "recentProjects.maxProjects": {
+          "type": "number",
+          "default": 20,
+          "minimum": 5,
+          "maximum": 50,
+          "description": "Maximum number of recent projects to remember"
+        },
+        "recentProjects.openInNewWindow": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open projects in a new window when using the QuickPick switcher (Ctrl+Alt+P)"
+        },
+        "recentProjects.showFullPath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the full path in the QuickPick project switcher"
+        },
+        "recentProjects.statusBarText": {
+          "type": "string",
+          "default": "short",
+          "enum": ["short", "full"],
+          "enumDescriptions": [
+            "Show only the project folder name",
+            "Show the full path"
+          ],
+          "description": "Text to display in the status bar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "lint": "eslint src --ext ts",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.3.0"
+  }
+}
