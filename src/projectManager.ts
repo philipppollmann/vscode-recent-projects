@@ -73,6 +73,7 @@ export class ProjectManager {
       lastOpened: Date.now(),
       color: existing?.color,
       icon: existing?.icon,
+      groupId: existing?.groupId,
     };
 
     filtered.unshift(entry);

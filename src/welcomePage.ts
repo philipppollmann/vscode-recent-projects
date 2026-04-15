@@ -196,7 +196,7 @@ export class WelcomePage {
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+    content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src https: http: data:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Projects</title>
   <style>
@@ -334,6 +334,12 @@ export class WelcomePage {
     .tile-icon.default {
       font-size: 22px;
       opacity: 0.6;
+    }
+    .tile-icon-img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      border-radius: 4px;
     }
 
     .tile-info { min-width: 0; flex: 1; }
@@ -494,9 +500,15 @@ export class WelcomePage {
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    function isUrl(s) {
+      return typeof s === 'string' && (s.startsWith('http://') || s.startsWith('https://'));
+    }
+
     function renderTile(p, idx, inGroup) {
       const icon = p.icon
-        ? \`<span class="tile-icon">\${esc(p.icon)}</span>\`
+        ? isUrl(p.icon)
+          ? \`<span class="tile-icon"><img src="\${esc(p.icon)}" class="tile-icon-img" alt="" onerror="this.parentElement.innerHTML='📁';this.parentElement.className='tile-icon default'"></span>\`
+          : \`<span class="tile-icon">\${esc(p.icon)}</span>\`
         : \`<span class="tile-icon default">📁</span>\`;
 
       const timeLabel = p.isCurrent
@@ -706,16 +718,35 @@ export async function pickAndApplyIcon(
 ): Promise<void> {
   const items = [
     ...PRESET_ICONS.map((e) => ({ label: e, description: "" })),
+    { label: "$(link) Enter image URL…", description: "Use any https:// image as icon" },
     { label: "$(close) Remove icon", description: "Reset to default folder icon" },
   ];
 
   const picked = await vscode.window.showQuickPick(items, {
     title: "Choose a project icon",
-    placeHolder: "Select an emoji for this project",
+    placeHolder: "Select an emoji or enter an image URL",
   });
   if (!picked) { return; }
 
-  const icon = picked.label.startsWith("$(") ? undefined : picked.label;
+  let icon: string | undefined;
+  if (picked.label === "$(link) Enter image URL…") {
+    const url = await vscode.window.showInputBox({
+      title: "Icon Image URL",
+      prompt: "Enter the URL of the image to use as the project icon",
+      placeHolder: "https://example.com/icon.png",
+      validateInput: (v) =>
+        v.startsWith("https://") || v.startsWith("http://")
+          ? null
+          : "Please enter a valid URL starting with https:// or http://",
+    });
+    if (url === undefined) { return; }
+    icon = url;
+  } else if (picked.label.startsWith("$(")) {
+    icon = undefined;
+  } else {
+    icon = picked.label;
+  }
+
   await projectManager.updateProjectMeta(projectPath, { icon });
 }
 
