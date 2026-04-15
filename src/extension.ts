@@ -7,7 +7,8 @@ import {
   showRemoveProjectPicker,
 } from "./projectSwitcher";
 import { ProjectTreeProvider } from "./projectTreeProvider";
-import { WelcomePage, pickAndApplyColor, pickAndApplyIcon } from "./welcomePage";
+import { WelcomePage, pickAndApplyColor, pickAndApplyIcon, assignProjectToGroup } from "./welcomePage";
+import { GroupTreeItem, ProjectTreeItem } from "./projectTreeProvider";
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -34,8 +35,12 @@ export async function activate(
   // ── Welcome page ─────────────────────────────────────────────────────────
   const welcomePage = new WelcomePage(context, projectManager);
 
-  // Show welcome page on startup when no workspace is open
-  if (!vscode.workspace.workspaceFolders) {
+  // Auto-open start page based on setting
+  const config = vscode.workspace.getConfiguration("recentProjects");
+  const showOnStartup = config.get<string>("showOnStartup", "always");
+  if (showOnStartup === "always") {
+    welcomePage.show();
+  } else if (showOnStartup === "noWorkspace" && !vscode.workspace.workspaceFolders) {
     welcomePage.show();
   }
 
@@ -118,6 +123,83 @@ export async function activate(
           item && "entry" in item && item.entry ? item.entry : (item as ProjectEntry | undefined);
         if (entry?.path) {
           await pickAndApplyIcon(projectManager, entry.path);
+        }
+      }
+    )
+  );
+
+  // Create group
+  context.subscriptions.push(
+    vscode.commands.registerCommand("recentProjects.createGroup", async () => {
+      const name = await vscode.window.showInputBox({
+        title: "New Group",
+        prompt: "Enter a name for the group",
+        placeHolder: "e.g. Work, Personal, Client XYZ",
+        validateInput: (v) => v.trim() ? null : "Name cannot be empty",
+      });
+      if (name?.trim()) {
+        await projectManager.createGroup(name.trim());
+      }
+    })
+  );
+
+  // Rename group (from tree context)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.renameGroup",
+      async (item: GroupTreeItem | undefined) => {
+        const group = item?.group;
+        if (!group) { return; }
+        const newName = await vscode.window.showInputBox({
+          title: "Rename Group",
+          value: group.name,
+          validateInput: (v) => v.trim() ? null : "Name cannot be empty",
+        });
+        if (newName?.trim()) {
+          await projectManager.renameGroup(group.id, newName.trim());
+        }
+      }
+    )
+  );
+
+  // Delete group (from tree context)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.deleteGroup",
+      async (item: GroupTreeItem | undefined) => {
+        const group = item?.group;
+        if (!group) { return; }
+        const confirm = await vscode.window.showWarningMessage(
+          `Delete group "${group.name}"? Projects will not be deleted, just ungrouped.`,
+          { modal: true },
+          "Delete"
+        );
+        if (confirm === "Delete") {
+          await projectManager.removeGroup(group.id);
+        }
+      }
+    )
+  );
+
+  // Assign project to group (from tree context)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.assignGroup",
+      async (item: ProjectTreeItem | undefined) => {
+        if (item?.entry?.path) {
+          await assignProjectToGroup(projectManager, item.entry.path);
+        }
+      }
+    )
+  );
+
+  // Remove project from group (from tree context)
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.removeFromGroup",
+      async (item: ProjectTreeItem | undefined) => {
+        if (item?.entry?.path) {
+          await projectManager.setProjectGroup(item.entry.path, undefined);
         }
       }
     )

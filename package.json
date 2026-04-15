@@ -94,6 +94,36 @@
         "title": "Change Project Icon",
         "category": "Recent Projects",
         "icon": "$(smiley)"
+      },
+      {
+        "command": "recentProjects.createGroup",
+        "title": "Create Project Group",
+        "category": "Recent Projects",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "recentProjects.renameGroup",
+        "title": "Rename Group",
+        "category": "Recent Projects",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "recentProjects.deleteGroup",
+        "title": "Delete Group",
+        "category": "Recent Projects",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "recentProjects.assignGroup",
+        "title": "Assign to Group…",
+        "category": "Recent Projects",
+        "icon": "$(group-by-ref-type)"
+      },
+      {
+        "command": "recentProjects.removeFromGroup",
+        "title": "Remove from Group",
+        "category": "Recent Projects",
+        "icon": "$(close)"
       }
     ],
     "menus": {
@@ -104,14 +134,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "recentProjects.openWelcomePage",
+          "command": "recentProjects.createGroup",
           "when": "view == recentProjectsView",
           "group": "navigation@2"
         },
         {
-          "command": "recentProjects.refreshProjects",
+          "command": "recentProjects.openWelcomePage",
           "when": "view == recentProjectsView",
           "group": "navigation@3"
+        },
+        {
+          "command": "recentProjects.refreshProjects",
+          "when": "view == recentProjectsView",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -121,13 +156,48 @@
           "group": "1_edit@1"
         },
         {
+          "command": "recentProjects.editProjectColor",
+          "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "1_edit@1"
+        },
+        {
           "command": "recentProjects.editProjectIcon",
           "when": "view == recentProjectsView && viewItem == project",
           "group": "1_edit@2"
         },
         {
+          "command": "recentProjects.editProjectIcon",
+          "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "recentProjects.assignGroup",
+          "when": "view == recentProjectsView && viewItem == project",
+          "group": "2_group@1"
+        },
+        {
+          "command": "recentProjects.removeFromGroup",
+          "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "2_group@1"
+        },
+        {
           "command": "recentProjects.removeProject",
           "when": "view == recentProjectsView && viewItem == project",
+          "group": "3_remove@1"
+        },
+        {
+          "command": "recentProjects.removeProject",
+          "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "3_remove@1"
+        },
+        {
+          "command": "recentProjects.renameGroup",
+          "when": "view == recentProjectsView && viewItem == projectGroup",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "recentProjects.deleteGroup",
+          "when": "view == recentProjectsView && viewItem == projectGroup",
           "group": "2_remove@1"
         }
       ]
@@ -142,6 +212,17 @@
     "configuration": {
       "title": "Recent Projects",
       "properties": {
+        "recentProjects.showOnStartup": {
+          "type": "string",
+          "default": "always",
+          "enum": ["always", "noWorkspace", "never"],
+          "enumDescriptions": [
+            "Always open the start page when VS Code starts",
+            "Only open when no workspace is open (previous behavior)",
+            "Never open automatically"
+          ],
+          "description": "When to automatically show the Projects start page on startup"
+        },
         "recentProjects.maxProjects": {
           "type": "number",
           "default": 20,

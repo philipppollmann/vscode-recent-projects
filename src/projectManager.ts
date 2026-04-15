@@ -12,9 +12,23 @@ export interface ProjectEntry {
   color?: string;
   /** Emoji icon, e.g. "🚀" */
   icon?: string;
+  /** ID of the group this project belongs to */
+  groupId?: string;
+}
+
+export interface ProjectGroup {
+  /** Unique ID (timestamp string) */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Hex color, e.g. "#4A90D9" */
+  color?: string;
+  /** Emoji icon */
+  icon?: string;
 }
 
 const STORAGE_KEY = "recentProjects.projectList";
+const GROUPS_STORAGE_KEY = "recentProjects.groups";
 
 export class ProjectManager {
   private context: vscode.ExtensionContext;
@@ -105,6 +119,62 @@ export class ProjectManager {
       }
       return p;
     });
+    await this.context.globalState.update(STORAGE_KEY, updated);
+    this._onDidChangeProjects.fire();
+  }
+
+  // ── Group management ────────────────────────────────────────────────────
+
+  getGroups(): ProjectGroup[] {
+    return this.context.globalState.get<ProjectGroup[]>(GROUPS_STORAGE_KEY) || [];
+  }
+
+  async createGroup(name: string): Promise<ProjectGroup> {
+    const groups = this.getGroups();
+    const group: ProjectGroup = { id: Date.now().toString(), name };
+    groups.push(group);
+    await this.context.globalState.update(GROUPS_STORAGE_KEY, groups);
+    this._onDidChangeProjects.fire();
+    return group;
+  }
+
+  async renameGroup(id: string, newName: string): Promise<void> {
+    const groups = this.getGroups().map((g) =>
+      g.id === id ? { ...g, name: newName } : g
+    );
+    await this.context.globalState.update(GROUPS_STORAGE_KEY, groups);
+    this._onDidChangeProjects.fire();
+  }
+
+  async removeGroup(id: string): Promise<void> {
+    const groups = this.getGroups().filter((g) => g.id !== id);
+    await this.context.globalState.update(GROUPS_STORAGE_KEY, groups);
+    // Unassign projects that belonged to this group
+    const projects = this.context.globalState.get<ProjectEntry[]>(STORAGE_KEY) || [];
+    const updated = projects.map((p) =>
+      p.groupId === id ? { ...p, groupId: undefined } : p
+    );
+    await this.context.globalState.update(STORAGE_KEY, updated);
+    this._onDidChangeProjects.fire();
+  }
+
+  async updateGroupMeta(
+    id: string,
+    meta: Partial<Pick<ProjectGroup, "color" | "icon" | "name">>
+  ): Promise<void> {
+    const groups = this.getGroups().map((g) =>
+      g.id === id ? { ...g, ...meta } : g
+    );
+    await this.context.globalState.update(GROUPS_STORAGE_KEY, groups);
+    this._onDidChangeProjects.fire();
+  }
+
+  async setProjectGroup(projectPath: string, groupId: string | undefined): Promise<void> {
+    const normalizedPath = this.normalizePath(projectPath);
+    const projects = this.context.globalState.get<ProjectEntry[]>(STORAGE_KEY) || [];
+    const updated = projects.map((p) =>
+      this.normalizePath(p.path) === normalizedPath ? { ...p, groupId } : p
+    );
     await this.context.globalState.update(STORAGE_KEY, updated);
     this._onDidChangeProjects.fire();
   }

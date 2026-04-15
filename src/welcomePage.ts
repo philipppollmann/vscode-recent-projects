@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
-import { ProjectManager, ProjectEntry } from "./projectManager";
+import { ProjectManager, ProjectEntry, ProjectGroup } from "./projectManager";
 
 const PRESET_COLORS = [
   { label: "Blue", color: "#4A90D9" },
@@ -61,13 +61,16 @@ export class WelcomePage {
       return;
     }
     const projects = this.projectManager.getProjects();
-    this.panel.webview.html = this.getHtml(projects);
+    const groups = this.projectManager.getGroups();
+    this.panel.webview.html = this.getHtml(projects, groups);
   }
 
   private async handleMessage(message: {
     command: string;
     path?: string;
     entry?: ProjectEntry;
+    groupId?: string;
+    name?: string;
   }): Promise<void> {
     switch (message.command) {
       case "openProject": {
@@ -115,23 +118,78 @@ export class WelcomePage {
         await pickAndApplyIcon(this.projectManager, message.path);
         break;
       }
+      case "createGroup": {
+        const groupName = await vscode.window.showInputBox({
+          title: "New Group",
+          prompt: "Enter a name for the group",
+          placeHolder: "e.g. Work, Personal, Client XYZ",
+          validateInput: (v) => v.trim() ? null : "Name cannot be empty",
+        });
+        if (groupName?.trim()) {
+          await this.projectManager.createGroup(groupName.trim());
+        }
+        break;
+      }
+      case "renameGroup": {
+        if (!message.groupId) { return; }
+        const groups = this.projectManager.getGroups();
+        const group = groups.find((g) => g.id === message.groupId);
+        if (!group) { return; }
+        const newName = await vscode.window.showInputBox({
+          title: "Rename Group",
+          prompt: "Enter a new name",
+          value: group.name,
+          validateInput: (v) => v.trim() ? null : "Name cannot be empty",
+        });
+        if (newName?.trim()) {
+          await this.projectManager.renameGroup(message.groupId, newName.trim());
+        }
+        break;
+      }
+      case "deleteGroup": {
+        if (!message.groupId) { return; }
+        const groups = this.projectManager.getGroups();
+        const group = groups.find((g) => g.id === message.groupId);
+        const confirm = await vscode.window.showWarningMessage(
+          `Delete group "${group?.name ?? message.groupId}"? Projects will not be deleted, just ungrouped.`,
+          { modal: true },
+          "Delete"
+        );
+        if (confirm === "Delete") {
+          await this.projectManager.removeGroup(message.groupId);
+        }
+        break;
+      }
+      case "assignGroup": {
+        if (!message.path) { return; }
+        await assignProjectToGroup(this.projectManager, message.path);
+        break;
+      }
+      case "removeFromGroup": {
+        if (!message.path) { return; }
+        await this.projectManager.setProjectGroup(message.path, undefined);
+        break;
+      }
     }
   }
 
-  private getHtml(projects: ProjectEntry[]): string {
+  private getHtml(projects: ProjectEntry[], groups: ProjectGroup[]): string {
     const currentPath = this.projectManager.getCurrentProjectPath();
-    const dataJson = JSON.stringify(
-      projects.map((p) => ({
-        path: p.path,
-        name: p.name,
-        lastOpened: p.lastOpened,
-        color: p.color || "#4A90D9",
-        icon: p.icon || "",
-        isCurrent:
-          !!currentPath &&
-          path.resolve(currentPath) === path.resolve(p.path),
-      }))
-    );
+
+    const enriched = projects.map((p) => ({
+      path: p.path,
+      name: p.name,
+      lastOpened: p.lastOpened,
+      color: p.color || "#4A90D9",
+      icon: p.icon || "",
+      groupId: p.groupId || null,
+      isCurrent:
+        !!currentPath &&
+        path.resolve(currentPath) === path.resolve(p.path),
+    }));
+
+    const groupsJson = JSON.stringify(groups);
+    const dataJson = JSON.stringify(enriched);
 
     return /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -153,23 +211,78 @@ export class WelcomePage {
       min-height: 100vh;
     }
 
-    .header {
+    .top-bar {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       gap: 12px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
-    .header h1 {
+    .top-bar h1 {
       font-size: 22px;
       font-weight: 600;
       color: var(--vscode-foreground);
       letter-spacing: -0.3px;
+      flex: 1;
     }
-    .header .count {
+    .top-bar .count {
       font-size: 13px;
       color: var(--vscode-descriptionForeground);
     }
 
+    /* ── Group section ─────────────────────────────────────────────── */
+    .group-section {
+      margin-bottom: 28px;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.2));
+    }
+
+    .group-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .group-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vscode-foreground);
+      flex: 1;
+    }
+
+    .group-count {
+      font-size: 11px;
+      color: var(--vscode-descriptionForeground);
+      margin-right: 4px;
+    }
+
+    .group-actions {
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 100ms ease;
+    }
+    .group-header:hover .group-actions { opacity: 1; }
+
+    .ungrouped-header {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--vscode-widget-border, rgba(128,128,128,0.15));
+    }
+
+    /* ── Grid / tiles ──────────────────────────────────────────────── */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -260,6 +373,7 @@ export class WelcomePage {
         rgba(128,128,128,0.15));
       opacity: 0;
       transition: opacity 100ms ease;
+      flex-wrap: wrap;
     }
     .tile:hover .tile-actions { opacity: 1; }
 
@@ -336,18 +450,20 @@ export class WelcomePage {
   </style>
 </head>
 <body>
-  <div class="header">
+  <div class="top-bar">
     <h1>Projects</h1>
     <span class="count" id="count"></span>
+    <button class="btn" id="btn-create-group" title="Create a new project group">＋ New Group</button>
+    <button class="btn" id="btn-add-project" title="Add a project folder">＋ Add Project</button>
   </div>
   <div id="root"></div>
 
   <script id="project-data" type="application/json">${dataJson}</script>
+  <script id="group-data" type="application/json">${groupsJson}</script>
   <script>
     const vscode = acquireVsCodeApi();
-    const projects = JSON.parse(
-      document.getElementById('project-data').textContent
-    );
+    const projects = JSON.parse(document.getElementById('project-data').textContent);
+    const groups   = JSON.parse(document.getElementById('group-data').textContent);
 
     function relativeTime(ts) {
       const diff = Date.now() - ts;
@@ -356,35 +472,29 @@ export class WelcomePage {
       const d = Math.floor(h / 24);
       const w = Math.floor(d / 7);
       const mo = Math.floor(d / 30);
-      if (m < 1) return 'just now';
+      if (m < 1)  return 'just now';
       if (m < 60) return m + 'm ago';
       if (h < 24) return h + 'h ago';
-      if (d < 7) return d + 'd ago';
-      if (w < 4) return w + 'w ago';
+      if (d < 7)  return d + 'd ago';
+      if (w < 4)  return w + 'w ago';
       return mo + 'mo ago';
     }
 
     function shortenPath(p) {
-      const home = '';
       try {
-        // shorten to last 2 segments
         const parts = p.replace(/\\\\/g, '/').split('/');
-        if (parts.length > 3) {
-          return '…/' + parts.slice(-2).join('/');
-        }
+        if (parts.length > 3) { return '…/' + parts.slice(-2).join('/'); }
         return p;
       } catch(e) { return p; }
     }
 
     function esc(s) {
       return String(s)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    function renderTile(p, idx) {
+    function renderTile(p, idx, inGroup) {
       const icon = p.icon
         ? \`<span class="tile-icon">\${esc(p.icon)}</span>\`
         : \`<span class="tile-icon default">📁</span>\`;
@@ -392,6 +502,10 @@ export class WelcomePage {
       const timeLabel = p.isCurrent
         ? \`<span class="tile-time active">● Currently open</span>\`
         : \`<span class="tile-time">\${relativeTime(p.lastOpened)}</span>\`;
+
+      const groupBtn = inGroup
+        ? \`<button class="btn" data-action="removeFromGroup" data-idx="\${idx}" title="Remove from group">⊖ Ungroup</button>\`
+        : \`<button class="btn" data-action="assignGroup" data-idx="\${idx}" title="Add to a group">⊕ Group</button>\`;
 
       return \`
         <div class="tile\${p.isCurrent ? ' current' : ''}" data-idx="\${idx}">
@@ -408,6 +522,7 @@ export class WelcomePage {
             <button class="btn primary" data-action="open" data-idx="\${idx}">Open</button>
             <button class="btn" data-action="editColor" data-idx="\${idx}" title="Change color">🎨</button>
             <button class="btn" data-action="editIcon" data-idx="\${idx}" title="Change icon">😀</button>
+            \${groupBtn}
             <button class="btn danger" data-action="remove" data-idx="\${idx}" title="Remove">✕</button>
           </div>
         </div>
@@ -423,12 +538,40 @@ export class WelcomePage {
       \`;
     }
 
-    function render() {
-      const root = document.getElementById('root');
-      const countEl = document.getElementById('count');
+    function renderGroupSection(group) {
+      const groupProjects = projects
+        .map((p, i) => ({ p, i }))
+        .filter(({ p }) => p.groupId === group.id);
 
-      if (projects.length === 0) {
-        countEl.textContent = '';
+      const dot = group.color
+        ? \`<span class="group-dot" style="background:\${esc(group.color)}"></span>\`
+        : '';
+      const icon = group.icon ? esc(group.icon) + ' ' : '';
+
+      return \`
+        <div class="group-section">
+          <div class="group-header">
+            \${dot}
+            <span class="group-title">\${icon}\${esc(group.name)}</span>
+            <span class="group-count">\${groupProjects.length} repo\${groupProjects.length !== 1 ? 's' : ''}</span>
+            <div class="group-actions">
+              <button class="btn" data-action="renameGroup" data-group-id="\${esc(group.id)}" title="Rename group">Rename</button>
+              <button class="btn danger" data-action="deleteGroup" data-group-id="\${esc(group.id)}" title="Delete group">Delete</button>
+            </div>
+          </div>
+          <div class="grid">
+            \${groupProjects.map(({ p, i }) => renderTile(p, i, true)).join('')}
+          </div>
+        </div>
+      \`;
+    }
+
+    function render() {
+      const root     = document.getElementById('root');
+      const countEl  = document.getElementById('count');
+      countEl.textContent = projects.length + ' project' + (projects.length !== 1 ? 's' : '');
+
+      if (projects.length === 0 && groups.length === 0) {
         root.innerHTML = \`
           <div class="empty-state">
             <span class="big-icon">📂</span>
@@ -436,26 +579,57 @@ export class WelcomePage {
             <button class="btn primary" data-action="add">Add your first project</button>
           </div>
         \`;
-      } else {
-        countEl.textContent = projects.length + ' project' + (projects.length !== 1 ? 's' : '');
-        root.innerHTML = \`
-          <div class="grid">
-            \${projects.map((p, i) => renderTile(p, i)).join('')}
-            \${renderAddTile()}
+        return;
+      }
+
+      let html = '';
+
+      // Render groups
+      for (const group of groups) {
+        html += renderGroupSection(group);
+      }
+
+      // Render ungrouped projects
+      const ungrouped = projects.map((p, i) => ({ p, i })).filter(({ p }) => !p.groupId);
+      if (ungrouped.length > 0) {
+        const header = groups.length > 0
+          ? '<div class="ungrouped-header">Other Projects</div>'
+          : '';
+        html += \`
+          <div class="group-section">
+            \${header}
+            <div class="grid">
+              \${ungrouped.map(({ p, i }) => renderTile(p, i, false)).join('')}
+              \${renderAddTile()}
+            </div>
+          </div>
+        \`;
+      } else if (groups.length > 0) {
+        html += \`
+          <div class="group-section">
+            <div class="grid">\${renderAddTile()}</div>
           </div>
         \`;
       }
+
+      root.innerHTML = html;
     }
+
+    document.getElementById('btn-create-group').addEventListener('click', () => {
+      vscode.postMessage({ command: 'createGroup' });
+    });
+    document.getElementById('btn-add-project').addEventListener('click', () => {
+      vscode.postMessage({ command: 'addProject' });
+    });
 
     document.addEventListener('click', (e) => {
       const target = e.target.closest('[data-action]');
       if (!target) { return; }
 
-      const action = target.dataset.action;
-      const idx = target.dataset.idx !== undefined
-        ? parseInt(target.dataset.idx, 10)
-        : -1;
+      const action  = target.dataset.action;
+      const idx     = target.dataset.idx !== undefined ? parseInt(target.dataset.idx, 10) : -1;
       const project = idx >= 0 ? projects[idx] : null;
+      const groupId = target.dataset.groupId;
 
       if (action === 'open' && project) {
         vscode.postMessage({ command: 'openProject', entry: project });
@@ -467,6 +641,14 @@ export class WelcomePage {
         vscode.postMessage({ command: 'editColor', path: project.path });
       } else if (action === 'editIcon' && project) {
         vscode.postMessage({ command: 'editIcon', path: project.path });
+      } else if (action === 'assignGroup' && project) {
+        vscode.postMessage({ command: 'assignGroup', path: project.path });
+      } else if (action === 'removeFromGroup' && project) {
+        vscode.postMessage({ command: 'removeFromGroup', path: project.path });
+      } else if (action === 'renameGroup' && groupId) {
+        vscode.postMessage({ command: 'renameGroup', groupId });
+      } else if (action === 'deleteGroup' && groupId) {
+        vscode.postMessage({ command: 'deleteGroup', groupId });
       }
     });
 
@@ -535,4 +717,42 @@ export async function pickAndApplyIcon(
 
   const icon = picked.label.startsWith("$(") ? undefined : picked.label;
   await projectManager.updateProjectMeta(projectPath, { icon });
+}
+
+export async function assignProjectToGroup(
+  projectManager: ProjectManager,
+  projectPath: string
+): Promise<void> {
+  const groups = projectManager.getGroups();
+
+  const items: vscode.QuickPickItem[] = [
+    ...groups.map((g) => ({
+      label: (g.icon ? g.icon + "  " : "") + g.name,
+      description: g.id,
+    })),
+    { label: "$(add) Create new group…", description: "__new__" },
+    { label: "$(close) Remove from group", description: "__none__" },
+  ];
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title: "Assign to Group",
+    placeHolder: "Select a group for this project",
+  });
+  if (!picked) { return; }
+
+  if (picked.description === "__new__") {
+    const groupName = await vscode.window.showInputBox({
+      title: "New Group",
+      prompt: "Enter a name for the new group",
+      placeHolder: "e.g. Work, Personal, Client XYZ",
+      validateInput: (v) => v.trim() ? null : "Name cannot be empty",
+    });
+    if (!groupName?.trim()) { return; }
+    const group = await projectManager.createGroup(groupName.trim());
+    await projectManager.setProjectGroup(projectPath, group.id);
+  } else if (picked.description === "__none__") {
+    await projectManager.setProjectGroup(projectPath, undefined);
+  } else {
+    await projectManager.setProjectGroup(projectPath, picked.description);
+  }
 }
