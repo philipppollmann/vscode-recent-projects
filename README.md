@@ -8,6 +8,7 @@ A JetBrains-inspired project switcher for Visual Studio Code. Quickly switch bet
 - **🔍 Quick Search** — Filter through your recent projects by name or path.
 - **🪟 Flexible Opening** — Open projects in the current window or a new window (inline button).
 - **🕐 Recent Tracking** — Automatically tracks projects as you open them. Shows how long ago each project was last opened.
+- **📌 Pinned Projects** — Keep important projects in the list even when the recent-project limit is reached.
 - **⌨️ Keyboard Shortcut** — `Ctrl+Alt+P` (macOS: `Cmd+Alt+P`) to instantly open the switcher.
 
 ## Installation
@@ -45,7 +46,8 @@ A JetBrains-inspired project switcher for Visual Studio Code. Quickly switch bet
 2. **Search** for a project by typing its name or path.
 3. **Click** a project to open it in the current window.
 4. **Use the window icon** (right side of each item) to open in a new window.
-5. **Use the trash icon** to remove a project from the list.
+5. **Use the pin icon** to keep a project in the list.
+6. **Use the trash icon** to remove a project from the list.
 
 ## Commands
 
@@ -54,6 +56,8 @@ A JetBrains-inspired project switcher for Visual Studio Code. Quickly switch bet
 | `Recent Projects: Switch Project` | Open the project switcher dropdown |
 | `Recent Projects: Add Project to List` | Add a project folder manually |
 | `Recent Projects: Remove Project from List` | Remove a project from the list |
+| `Recent Projects: Pin Project` | Keep a project in the list |
+| `Recent Projects: Unpin Project` | Allow a project to be trimmed by the recent-project limit |
 | `Recent Projects: Clear All Projects` | Clear the entire project list |
 
 ## Settings

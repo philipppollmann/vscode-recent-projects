@@ -28,13 +28,19 @@ export class ProjectTreeItem extends vscode.TreeItem {
     const icon = entry.icon || "";
     this.label = icon ? `${icon}  ${entry.name}` : entry.name;
     this.tooltip = new vscode.MarkdownString(
-      `**${entry.name}**\n\n\`${entry.path}\`\n\n_${getRelativeTimeString(entry.lastOpened)}_`
+      `**${entry.pinned ? "Pinned " : ""}${entry.name}**\n\n\`${entry.path}\`\n\n_${getRelativeTimeString(entry.lastOpened)}_`
     );
     this.description = shortenPath(entry.path);
-    this.contextValue = entry.groupId ? "projectInGroup" : "project";
+    if (entry.pinned && entry.groupId) {
+      this.contextValue = "projectPinnedInGroup";
+    } else if (entry.pinned) {
+      this.contextValue = "projectPinned";
+    } else {
+      this.contextValue = entry.groupId ? "projectInGroup" : "project";
+    }
 
     if (!icon) {
-      this.iconPath = new vscode.ThemeIcon("folder");
+      this.iconPath = new vscode.ThemeIcon(entry.pinned ? "pinned" : "folder");
     }
 
     this.command = {

@@ -12,6 +12,14 @@ import { GroupTreeItem, ProjectTreeItem } from "./projectTreeProvider";
 
 let statusBarItem: vscode.StatusBarItem;
 
+function getProjectEntry(
+  item: { entry?: ProjectEntry } | ProjectEntry | undefined
+): ProjectEntry | undefined {
+  return item && "entry" in item && item.entry
+    ? item.entry
+    : (item as ProjectEntry | undefined);
+}
+
 export async function activate(
   context: vscode.ExtensionContext
 ): Promise<void> {
@@ -90,9 +98,10 @@ export async function activate(
 
   // Remove project (picker)
   context.subscriptions.push(
-    vscode.commands.registerCommand("recentProjects.removeProject", async (arg?: ProjectEntry | undefined) => {
-      if (arg && arg.path) {
-        await projectManager.removeProject(arg.path);
+    vscode.commands.registerCommand("recentProjects.removeProject", async (arg?: { entry?: ProjectEntry } | ProjectEntry | undefined) => {
+      const entry = getProjectEntry(arg);
+      if (entry?.path) {
+        await projectManager.removeProject(entry.path);
       } else {
         await showRemoveProjectPicker(projectManager);
       }
@@ -104,9 +113,7 @@ export async function activate(
     vscode.commands.registerCommand(
       "recentProjects.editProjectColor",
       async (item: { entry?: ProjectEntry } | ProjectEntry | undefined) => {
-        // Handles both raw ProjectEntry and ProjectTreeItem (which has .entry)
-        const entry =
-          item && "entry" in item && item.entry ? item.entry : (item as ProjectEntry | undefined);
+        const entry = getProjectEntry(item);
         if (entry?.path) {
           await pickAndApplyColor(projectManager, entry.path);
         }
@@ -119,10 +126,34 @@ export async function activate(
     vscode.commands.registerCommand(
       "recentProjects.editProjectIcon",
       async (item: { entry?: ProjectEntry } | ProjectEntry | undefined) => {
-        const entry =
-          item && "entry" in item && item.entry ? item.entry : (item as ProjectEntry | undefined);
+        const entry = getProjectEntry(item);
         if (entry?.path) {
           await pickAndApplyIcon(projectManager, entry.path);
+        }
+      }
+    )
+  );
+
+  // Pin / unpin project
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.pinProject",
+      async (item: { entry?: ProjectEntry } | ProjectEntry | undefined) => {
+        const entry = getProjectEntry(item);
+        if (entry?.path) {
+          await projectManager.setProjectPinned(entry.path, true);
+        }
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "recentProjects.unpinProject",
+      async (item: { entry?: ProjectEntry } | ProjectEntry | undefined) => {
+        const entry = getProjectEntry(item);
+        if (entry?.path) {
+          await projectManager.setProjectPinned(entry.path, false);
         }
       }
     )

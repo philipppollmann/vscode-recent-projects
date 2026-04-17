@@ -96,6 +96,18 @@
         "icon": "$(smiley)"
       },
       {
+        "command": "recentProjects.pinProject",
+        "title": "Pin Project",
+        "category": "Recent Projects",
+        "icon": "$(pinned)"
+      },
+      {
+        "command": "recentProjects.unpinProject",
+        "title": "Unpin Project",
+        "category": "Recent Projects",
+        "icon": "$(pinned-dirty)"
+      },
+      {
         "command": "recentProjects.createGroup",
         "title": "Create Project Group",
         "category": "Recent Projects",
@@ -161,6 +173,16 @@
           "group": "1_edit@1"
         },
         {
+          "command": "recentProjects.editProjectColor",
+          "when": "view == recentProjectsView && viewItem == projectPinned",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "recentProjects.editProjectColor",
+          "when": "view == recentProjectsView && viewItem == projectPinnedInGroup",
+          "group": "1_edit@1"
+        },
+        {
           "command": "recentProjects.editProjectIcon",
           "when": "view == recentProjectsView && viewItem == project",
           "group": "1_edit@2"
@@ -169,6 +191,36 @@
           "command": "recentProjects.editProjectIcon",
           "when": "view == recentProjectsView && viewItem == projectInGroup",
           "group": "1_edit@2"
+        },
+        {
+          "command": "recentProjects.editProjectIcon",
+          "when": "view == recentProjectsView && viewItem == projectPinned",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "recentProjects.editProjectIcon",
+          "when": "view == recentProjectsView && viewItem == projectPinnedInGroup",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "recentProjects.pinProject",
+          "when": "view == recentProjectsView && viewItem == project",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "recentProjects.pinProject",
+          "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "recentProjects.unpinProject",
+          "when": "view == recentProjectsView && viewItem == projectPinned",
+          "group": "1_edit@3"
+        },
+        {
+          "command": "recentProjects.unpinProject",
+          "when": "view == recentProjectsView && viewItem == projectPinnedInGroup",
+          "group": "1_edit@3"
         },
         {
           "command": "recentProjects.assignGroup",
@@ -176,8 +228,18 @@
           "group": "2_group@1"
         },
         {
+          "command": "recentProjects.assignGroup",
+          "when": "view == recentProjectsView && viewItem == projectPinned",
+          "group": "2_group@1"
+        },
+        {
           "command": "recentProjects.removeFromGroup",
           "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "2_group@1"
+        },
+        {
+          "command": "recentProjects.removeFromGroup",
+          "when": "view == recentProjectsView && viewItem == projectPinnedInGroup",
           "group": "2_group@1"
         },
         {
@@ -188,6 +250,16 @@
         {
           "command": "recentProjects.removeProject",
           "when": "view == recentProjectsView && viewItem == projectInGroup",
+          "group": "3_remove@1"
+        },
+        {
+          "command": "recentProjects.removeProject",
+          "when": "view == recentProjectsView && viewItem == projectPinned",
+          "group": "3_remove@1"
+        },
+        {
+          "command": "recentProjects.removeProject",
+          "when": "view == recentProjectsView && viewItem == projectPinnedInGroup",
           "group": "3_remove@1"
         },
         {

@@ -91,7 +91,9 @@ export class WelcomePage {
           title: "Select a project folder",
         });
         if (uris && uris.length > 0) {
-          await this.projectManager.addProject(uris[0].fsPath);
+          await this.projectManager.addProject(uris[0].fsPath, {
+            pinned: true,
+          });
         }
         break;
       }
@@ -116,6 +118,16 @@ export class WelcomePage {
       case "editIcon": {
         if (!message.path) { return; }
         await pickAndApplyIcon(this.projectManager, message.path);
+        break;
+      }
+      case "pinProject": {
+        if (!message.path) { return; }
+        await this.projectManager.setProjectPinned(message.path, true);
+        break;
+      }
+      case "unpinProject": {
+        if (!message.path) { return; }
+        await this.projectManager.setProjectPinned(message.path, false);
         break;
       }
       case "createGroup": {
@@ -180,6 +192,7 @@ export class WelcomePage {
       path: p.path,
       name: p.name,
       lastOpened: p.lastOpened,
+      pinned: !!p.pinned,
       color: p.color || "#4A90D9",
       icon: p.icon || "",
       groupId: p.groupId || null,
@@ -369,6 +382,11 @@ export class WelcomePage {
       color: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
       opacity: 1;
     }
+    .tile-time.pinned {
+      color: var(--vscode-charts-yellow, #cca700);
+      opacity: 1;
+      margin-right: 6px;
+    }
 
     .tile-actions {
       display: flex;
@@ -515,9 +533,17 @@ export class WelcomePage {
         ? \`<span class="tile-time active">● Currently open</span>\`
         : \`<span class="tile-time">\${relativeTime(p.lastOpened)}</span>\`;
 
+      const pinLabel = p.pinned
+        ? \`<span class="tile-time pinned">★ Pinned</span>\`
+        : '';
+
       const groupBtn = inGroup
         ? \`<button class="btn" data-action="removeFromGroup" data-idx="\${idx}" title="Remove from group">⊖ Ungroup</button>\`
         : \`<button class="btn" data-action="assignGroup" data-idx="\${idx}" title="Add to a group">⊕ Group</button>\`;
+
+      const pinBtn = p.pinned
+        ? \`<button class="btn" data-action="unpin" data-idx="\${idx}" title="Allow this project to be trimmed">Unpin</button>\`
+        : \`<button class="btn" data-action="pin" data-idx="\${idx}" title="Keep this project in the list">Pin</button>\`;
 
       return \`
         <div class="tile\${p.isCurrent ? ' current' : ''}" data-idx="\${idx}">
@@ -527,11 +553,12 @@ export class WelcomePage {
             <div class="tile-info">
               <div class="tile-name" title="\${esc(p.name)}">\${esc(p.name)}</div>
               <div class="tile-path" title="\${esc(p.path)}">\${esc(shortenPath(p.path))}</div>
-              \${timeLabel}
+              <div>\${pinLabel}\${timeLabel}</div>
             </div>
           </div>
           <div class="tile-actions">
             <button class="btn primary" data-action="open" data-idx="\${idx}">Open</button>
+            \${pinBtn}
             <button class="btn" data-action="editColor" data-idx="\${idx}" title="Change color">🎨</button>
             <button class="btn" data-action="editIcon" data-idx="\${idx}" title="Change icon">😀</button>
             \${groupBtn}
@@ -653,6 +680,10 @@ export class WelcomePage {
         vscode.postMessage({ command: 'editColor', path: project.path });
       } else if (action === 'editIcon' && project) {
         vscode.postMessage({ command: 'editIcon', path: project.path });
+      } else if (action === 'pin' && project) {
+        vscode.postMessage({ command: 'pinProject', path: project.path });
+      } else if (action === 'unpin' && project) {
+        vscode.postMessage({ command: 'unpinProject', path: project.path });
       } else if (action === 'assignGroup' && project) {
         vscode.postMessage({ command: 'assignGroup', path: project.path });
       } else if (action === 'removeFromGroup' && project) {

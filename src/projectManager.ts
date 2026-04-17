@@ -8,6 +8,8 @@ export interface ProjectEntry {
   name: string;
   /** Timestamp of last time this project was opened (ms since epoch) */
   lastOpened: number;
+  /** Whether this project should be kept even when recent projects are trimmed */
+  pinned?: boolean;
   /** Hex color for the tile, e.g. "#4A90D9" */
   color?: string;
   /** Emoji icon, e.g. "🚀" */
@@ -25,6 +27,11 @@ export interface ProjectGroup {
   color?: string;
   /** Emoji icon */
   icon?: string;
+}
+
+export interface AddProjectOptions {
+  /** Pin the project so it is not removed by the recent-project limit */
+  pinned?: boolean;
 }
 
 const STORAGE_KEY = "recentProjects.projectList";
@@ -47,13 +54,21 @@ export class ProjectManager {
   getProjects(): ProjectEntry[] {
     const projects =
       this.context.globalState.get<ProjectEntry[]>(STORAGE_KEY) || [];
-    return projects.sort((a, b) => b.lastOpened - a.lastOpened);
+    return [...projects].sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+      return b.lastOpened - a.lastOpened;
+    });
   }
 
   /**
    * Add or update a project. Preserves color/icon of an existing entry.
    */
-  async addProject(projectPath: string): Promise<void> {
+  async addProject(
+    projectPath: string,
+    options: AddProjectOptions = {}
+  ): Promise<void> {
     const normalizedPath = this.normalizePath(projectPath);
     const projects =
       this.context.globalState.get<ProjectEntry[]>(STORAGE_KEY) || [];
@@ -71,13 +86,14 @@ export class ProjectManager {
       path: normalizedPath,
       name: path.basename(normalizedPath),
       lastOpened: Date.now(),
+      pinned: options.pinned ?? existing?.pinned,
       color: existing?.color,
       icon: existing?.icon,
       groupId: existing?.groupId,
     };
 
     filtered.unshift(entry);
-    const trimmed = filtered.slice(0, maxProjects);
+    const trimmed = this.trimRecentProjects(filtered, maxProjects);
 
     await this.context.globalState.update(STORAGE_KEY, trimmed);
     this._onDidChangeProjects.fire();
@@ -120,6 +136,20 @@ export class ProjectManager {
       }
       return p;
     });
+    await this.context.globalState.update(STORAGE_KEY, updated);
+    this._onDidChangeProjects.fire();
+  }
+
+  /**
+   * Pin or unpin a project without changing lastOpened.
+   */
+  async setProjectPinned(projectPath: string, pinned: boolean): Promise<void> {
+    const normalizedPath = this.normalizePath(projectPath);
+    const projects =
+      this.context.globalState.get<ProjectEntry[]>(STORAGE_KEY) || [];
+    const updated = projects.map((p) =>
+      this.normalizePath(p.path) === normalizedPath ? { ...p, pinned } : p
+    );
     await this.context.globalState.update(STORAGE_KEY, updated);
     this._onDidChangeProjects.fire();
   }
@@ -217,5 +247,23 @@ export class ProjectManager {
    */
   private normalizePath(p: string): string {
     return path.resolve(p).replace(/[/\\]+$/, "");
+  }
+
+  /**
+   * Keep all pinned projects and trim only ordinary recent entries.
+   */
+  private trimRecentProjects(
+    projects: ProjectEntry[],
+    maxRecentProjects: number
+  ): ProjectEntry[] {
+    let recentCount = 0;
+    return projects.filter((project) => {
+      if (project.pinned) {
+        return true;
+      }
+
+      recentCount += 1;
+      return recentCount <= maxRecentProjects;
+    });
   }
 }

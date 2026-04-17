@@ -35,11 +35,17 @@ export async function showProjectSwitcher(
     const timeAgo = getRelativeTimeString(project.lastOpened);
 
     items.push({
-      label: `${isCurrent ? "$(check) " : "$(folder) "}${project.name}`,
+      label: `${isCurrent ? "$(check) " : project.pinned ? "$(pinned) " : "$(folder) "}${project.name}`,
       description: showFullPath ? project.path : undefined,
-      detail: isCurrent ? "Currently open" : `Last opened ${timeAgo}`,
+      detail: isCurrent
+        ? "Currently open"
+        : `${project.pinned ? "Pinned • " : ""}Last opened ${timeAgo}`,
       projectEntry: project,
       buttons: [
+        {
+          iconPath: new vscode.ThemeIcon(project.pinned ? "pinned" : "pin"),
+          tooltip: project.pinned ? "Unpin project" : "Pin project",
+        },
         {
           iconPath: new vscode.ThemeIcon("window"),
           tooltip: "Open in new window",
@@ -92,6 +98,20 @@ export async function showProjectSwitcher(
     if (button.tooltip === "Remove from list") {
       await projectManager.removeProject(item.projectEntry.path);
       // Refresh the list
+      quickPick.hide();
+      await showProjectSwitcher(projectManager);
+      return;
+    }
+
+    if (button.tooltip === "Pin project") {
+      await projectManager.setProjectPinned(item.projectEntry.path, true);
+      quickPick.hide();
+      await showProjectSwitcher(projectManager);
+      return;
+    }
+
+    if (button.tooltip === "Unpin project") {
+      await projectManager.setProjectPinned(item.projectEntry.path, false);
       quickPick.hide();
       await showProjectSwitcher(projectManager);
       return;
@@ -179,7 +199,7 @@ export async function addProjectViaDialog(
 
   if (uris && uris.length > 0) {
     const folderPath = uris[0].fsPath;
-    await projectManager.addProject(folderPath);
+    await projectManager.addProject(folderPath, { pinned: true });
     vscode.window.showInformationMessage(
       `Added "${path.basename(folderPath)}" to recent projects.`
     );
